@@ -1,101 +1,114 @@
 # Guía de Configuración de Xiaozhi
 
-Esta guía explica cómo configurar el asistente de voz Xiaozhi para Raspberry Pi editando el archivo `config.json`.
+Esta guía explica los archivos de configuración en `config/` y cómo desplegarlos en `py-xiaozhi`.
 
-## Archivo config.json
+## Archivos de Configuración
 
-Copie el archivo de ejemplo y configure los valores:
+Este repositorio contiene dos archivos de configuración en `config/`:
+
+| Archivo | Propósito |
+|---------|-----------|
+| `config.json` | Configuración de py-xiaozhi (red, wake word, cámara, audio, logs) |
+| `efuse.json` | Identidad del dispositivo (MAC, serial, HMAC key, estado de activación) |
+
+### Despliegue
 
 ```bash
-cp config.json.example config.json
+# Copiar a py-xiaozhi
+cp config/config.json  /home/joy/src/py-xiaozhi/config/
+cp config/efuse.json   /home/joy/src/py-xiaozhi/config/
 ```
 
-### Estructura general
+El script `deploy-rpi.sh` hace esto automáticamente.
+
+## config.json — Referencia de Secciones
+
+El `config.json` usa las claves en inglés de py-xiaozhi v2.1.1:
 
 ```json
 {
-  "OPCIONES_DEL_SISTEMA": {
-    "ID_CLIENTE": "...",
-    "ID_DEL_DISPOSITIVO": "...",
-    "RED": { ... }
+  "CONFIG_VERSION": 1,
+  "SYSTEM_OPTIONS": {        // Información del sistema y red
+    "CLIENT_ID": null,        // UUID del cliente (asignado al activar)
+    "DEVICE_ID": null,        // ID del dispositivo
+    "NETWORK": {
+      "WEBSOCKET_URL": "wss://api.tenclass.net/xiaozhi/v1/",
+      "WEBSOCKET_ACCESS_TOKEN": "test-token",
+      "OTA_VERSION_URL": "https://api.tenclass.net/xiaozhi/ota/"
+    }
   },
-  "OPCIONES_DE_PALABRA_DE_DESPERTAR": { ... },
-  "TEMPERATURE_SENSOR_MQTT_INFO": { ... },
-  "ASISTENTE_DOMÉSTICO": { ... },
-  "CÁMARA": { ... }
+  "WAKE_WORD_OPTIONS": {     // Detección de palabra de activación
+    "USE_WAKE_WORD": true,
+    "MODEL_PATH": "models/zh",
+    "NUM_THREADS": 5,
+    "WAKE_WORD": "你好小智",
+    "WAKE_WORD_LANG": "zh"
+  },
+  "CAMERA": {
+    "camera_index": 0,
+    "backend": "auto",
+    "frame_width": 640,
+    "frame_height": 480
+  },
+  "AUDIO_DEVICES": {         // Dispositivos de audio ALSA
+    "input_device_id": null,  // Captura: se detecta automáticamente
+    "output_device_id": null, // Reproducción: MAX98357A (card 2)
+    "output_sample_rate": null,
+    "opus_output_sample_rate": 24000
+  },
+  "LOGGING": { ... }
 }
 ```
 
-## Sección: OPCIONES_DEL_SISTEMA
+### AUDIO_DEVICES — Configuración de Audio
 
-| Campo | Descripción |
-|-------|-------------|
-| `ID_CLIENTE` | UUID único del cliente (generado en la plataforma) |
-| `ID_DEL_DISPOSITIVO` | Dirección MAC de la Raspberry Pi |
-| `RED.OTA_VERSION_URL` | URL para comprobaciones de actualización OTA |
-| `RED.WEBSOCKET_URL` | Endpoint WebSocket para la conexión con el servidor |
-| `RED.WEBSOCKET_ACCESS_TOKEN` | Token de acceso WebSocket |
-| `RED.MQTT_INFO` | Configuración de conexión MQTT (endpoint, credenciales, topics) |
-| `RED.VERSIÓN_DE_ACTIVACIÓN` | Versión del protocolo de activación (`v2`) |
-| `RED.URL_DE_AUTORIZACIÓN` | URL para la autorización del dispositivo |
+Por defecto (`null`), py-xiaozhi detecta dispositivos automáticamente. Si necesita especificar manualmente:
 
-### Obtener el ID_DEL_DISPOSITIVO (MAC)
-
-```bash
-cat /sys/class/net/eth0/address
-# o
-cat /sys/class/net/wlan0/address
+```json
+"AUDIO_DEVICES": {
+    "output_device_id": 2,    // MAX98357A (aplay -l)
+    "input_device_id": 1,     // INMP441 (arecord -l) — requiere toggle
+    "output_sample_rate": 48000,
+    "input_sample_rate": 48000
+}
 ```
 
-## Sección: OPCIONES_DE_PALABRA_DE_DESPERTAR
+Verifique los números de tarjeta con:
+```bash
+aplay -l    # números de card para reproducción
+arecord -l  # números de card para captura
+```
 
-| Campo | Descripción |
-|-------|-------------|
-| `USE_WAKE_WORD` | Habilitar/deshabilitar la detección de palabra de activación (`true`/`false`) |
-| `MODEL_PATH` | Ruta al modelo Vosk para la detección de palabras de activación |
-| `PALABRAS_DE_DESPERTAR` | Lista de palabras/frases que activan al asistente |
+## efuse.json — Identidad del Dispositivo
 
-## Sección: TEMPERATURE_SENSOR_MQTT_INFO (Opcional)
+Contiene la identidad única del dispositivo para activación:
 
-Configuración de un sensor de temperatura que publica a un broker MQTT.
+```json
+{
+    "serial_number": "SN-...",
+    "mac": "2c:cf:67:34:9c:91",
+    "hmac_key": "...",
+    "activation_status": false
+}
+```
 
-| Campo | Descripción |
-|-------|-------------|
-| `endpoint` | Dirección del broker MQTT |
-| `port` | Puerto del broker (por defecto 1883) |
-| `username` / `password` | Credenciales MQTT |
-| `publish_topic` | Topic para publicar comandos |
-| `subscribe_topic` | Topic para suscribirse a estados |
+Estos valores son específicos de esta Raspberry Pi. No modifique estos valores si usa el mismo hardware.
 
-## Sección: ASISTENTE_DOMÉSTICO (Home Assistant)
+## Identificar su dispositivo
 
-| Campo | Descripción |
-|-------|-------------|
-| `URL` | URL de Home Assistant (ej: `http://localhost:8123`) |
-| `TOKEN` | Token de acceso de larga duración (Long-Lived Access Token) |
-| `DISPOSITIVOS` | Lista de dispositivos a exponer |
+```bash
+# MAC address (ethernet o wifi)
+cat /sys/class/net/eth0/address
+cat /sys/class/net/wlan0/address
 
-### Generar un token de Home Assistant
-
-1. Inicie sesión en Home Assistant
-2. Perfil de usuario → "Tokens de acceso de larga duración"
-3. Cree un nuevo token y péguelo en `config.json`
-
-## Sección: CÁMARA (Opcional)
-
-| Campo | Descripción |
-|-------|-------------|
-| `índice_de_cámara` | Índice de la cámara en `/dev/video*` |
-| `frame_width` / `frame_height` | Resolución del frame |
-| `fps` | FPS de captura |
-| `Loacl_VL_url` | Endpoint de la API de visión por IA |
-| `VLapi_key` | Clave API de la función de visión |
-| `modelos` | Modelo de visión a utilizar |
+# Serial de la Pi
+cat /proc/cpuinfo | grep Serial
+```
 
 ## Activación del dispositivo
 
-El dispositivo debe estar activado (emparejado) con una cuenta Xiaozhi válida. Este proceso suele requerir:
+1. Inicie `python3 main.py --mode cli` en `py-xiaozhi/`
+2. Escanee el código QR desde la app móvil Xiaozhi
+3. El servidor asignará `CLIENT_ID` y `ACCESS_TOKEN`
 
-1. Iniciar `python3 main.py`
-2. Escanear el código QR que aparece en la consola con la app móvil Xiaozhi
-3. El servidor asignará un `ID_CLIENTE` y `ACCESS_TOKEN` válidos
+Ver [install.md](install.md) para el flujo completo de instalación.
