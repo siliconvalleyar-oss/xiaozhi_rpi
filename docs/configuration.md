@@ -51,8 +51,8 @@ El `config.json` usa las claves en inglés de py-xiaozhi v2.1.1:
     "frame_height": 480
   },
   "AUDIO_DEVICES": {         // Dispositivos de audio ALSA
-    "input_device_id": null,  // Captura: se detecta automáticamente
-    "output_device_id": null, // Reproducción: MAX98357A (card 2)
+    "output_device_id": null, // Reproducción: MAX98357A (card N, device 0)
+    "input_device_id": null,  // Captura: INMP441 (card N, device 1)
     "output_sample_rate": null,
     "opus_output_sample_rate": 24000
   },
@@ -66,8 +66,8 @@ Por defecto (`null`), py-xiaozhi detecta dispositivos automáticamente. Si neces
 
 ```json
 "AUDIO_DEVICES": {
-    "output_device_id": 2,    // MAX98357A (aplay -l)
-    "input_device_id": 1,     // INMP441 (arecord -l) — requiere toggle
+    "output_device_id": 2,    // MAX98357A (aplay -l) — device 0
+    "input_device_id": 2,     // INMP441 (arecord -l) — device 1 (misma card)
     "output_sample_rate": 48000,
     "input_sample_rate": 48000
 }
