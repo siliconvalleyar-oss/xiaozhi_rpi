@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+
+# Conda
+conda-meta/
+
+# Miniconda installer
+Miniconda3-latest-Linux-aarch64.sh
+Miniconda3-latest-*.sh
+
+# Audio test files
+test.wav
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
