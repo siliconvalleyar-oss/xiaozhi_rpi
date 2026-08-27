@@ -1,6 +1,6 @@
 # Conexión del Micrófono INMP441 a Raspberry Pi
 
-Este documento describe cómo conectar físicamente el micrófono digital **INMP441** a una Raspberry Pi usando el bus I2S, basado en la configuración validada en el proyecto `inmp441_rpi`.
+Este documento describe cómo conectar físicamente el micrófono digital **INMP441** a una Raspberry Pi usando el bus I2S, y cómo resolver el conflicto con el amplificador MAX98357A (ambos compiten por el mismo DAI I2S).
 
 ## Acerca del INMP441
 
@@ -26,17 +26,17 @@ El INMP441 es un micrófono MEMS digital de doble vía con salida PDM (Pulse Den
 ## Diagrama de Conexión
 
 ```
-              Raspberry Pi 40-pines (vista superior)
-              ┌─────────────────┐
-  3.3V ──────┤  Pin 1      Pin 2  │────── 5V
-  3.3V ──────┤  Pin 17     Pin 18 │────── GPIO 24
-  GND  ──────┤  Pin 6      Pin 5  │────── GPIO 3 (SDA1)
-  GND  ──────┤  Pin 9      Pin 10 │────── GPIO 2 (SCL1)
-  GPIO 20 ───┤  Pin 38     Pin 39 │────── GND
-  GPIO 21 ───┤  Pin 40     Pin 37 │────── GPIO 26
-  GPIO 18 ───┤  Pin 12     Pin 13 │────── GPIO 27
-  GPIO 19 ───┤  Pin 35     Pin 36 │────── GND
-              └─────────────────┘
+               Raspberry Pi 40-pines (vista superior)
+               ┌─────────────────┐
+   3.3V ──────┤  Pin 1      Pin 2  │────── 5V
+   3.3V ──────┤  Pin 17     Pin 18 │────── GPIO 24
+   GND  ──────┤  Pin 6      Pin 5  │────── GPIO 3 (SDA1)
+   GND  ──────┤  Pin 9      Pin 10 │────── GPIO 2 (SCL1)
+   GPIO 20 ───┤  Pin 38     Pin 39 │────── GND
+   GPIO 21 ───┤  Pin 40     Pin 37 │────── GPIO 26
+   GPIO 18 ───┤  Pin 12     Pin 13 │────── GPIO 27
+   GPIO 19 ───┤  Pin 35     Pin 36 │────── GND
+               └─────────────────┘
 
 Conexiones INMP441 → Raspberry Pi:
   VDD  (INMP441) ────→ 3.3V  (Pin 1 o Pin 17)
@@ -50,67 +50,88 @@ Recomendado: Añadir un condensador cerámico de 100 nF (0.1 µF) entre VDD y GN
 muy cerca del INMP441 para reducir ruido de alimentación.
 ```
 
+## Configuración y Conflictos I2S
+
+### Conflicto INMP441 + MAX98357A
+
+El INMP441 (captura) y el MAX98357A (reproducción) **no pueden estar activos simultáneamente** en la misma Raspberry Pi. Ambos usan el driver `simple-audio-card` que enlaza el DAI I2S (`bcm2835-i2s`, nodo `fe203000.i2s`) a la tarjeta de sonido. El framework ASoC del kernel impide que el mismo DAI se enlaze a dos tarjetas diferentes:
+
+```
+bcm2835-i2s fe203000.i2s: Trying to bind component "fe203000.i2s" to card "MAX98357A" but is already bound to card "inmp441-mic"
+asoc-simple-card soc:sound: ASoC: failed to instantiate card -19
+```
+
+### Solución: Overlay combinado (opcional)
+
+El archivo `overlays/inmp441-max98357a-combined.dts` define una sola `simple-audio-card` con dos enlaces DAI (uno para cada codec). Si funciona en tu kernel, instálalo:
+
+```bash
+dtc -@ -I dts -O dtb -o inmp441-max98357a-combined.dtbo overlays/inmp441-max98357a-combined.dts
+sudo cp inmp441-max98357a-combined.dtbo /boot/firmware/overlays/
+sed -i 's/^dtoverlay=max98357a.*/dtoverlay=inmp441-max98357a-combined/' /boot/firmware/config.txt
+sudo reboot
+```
+
+### Solución recomendada: Cambio de overlay con toggle
+
+Usa el script `scripts/toggle-inmp441.sh` para alternar entre modos:
+
+```bash
+# Modo captura (INMP441) — desactiva MAX98357A
+bash scripts/toggle-inmp441.sh --enable-capture
+
+# Modo reproducción (MAX98357A) — desactiva INMP441
+bash scripts/toggle-inmp441.sh --enable-playback
+
+# Ver estado
+bash scripts/toggle-inmp441.sh --status
+```
+
 ## Configuración del Software (I2S y Overlay)
 
-### 1. Instalar el device tree overlay
+### 1. Configuración actual en la Raspberry Pi
 
-El overlay `inmp441-bare` ya está instalado en la Raspberry Pi (`raspberry.local`) en:
-```
-/boot/firmware/overlays/inmp441-bare.dtbo
-```
+La Pi (`raspberry.local`) tiene:
+- **Overlay `max98357a`**: activado (reproducción de audio vía amplificador I2S)
+- **Overlay `inmp441-bare`**: comentado en config.txt (conflicto con max98357a)
+- **Archivo config.txt**: `/boot/firmware/config.txt` (Raspberry Pi OS Bookworm)
 
-El overlay usa el driver genérico `dmic-codec` (`snd-soc-dmic`) en lugar del "dummy" `google,voicehat`. No requiere GPIO de sdmode.
-
-Si necesita recompilar el overlay desde el DTS fuente:
-```bash
-# En la Raspberry Pi o con toolchain de cross-compilation:
-cd /home/joy/src/inmp441_rpi/
-dtc -@ -I dts -O dtb -o inmp441-bare.dtbo overlays/inmp441-bare.dts
-sudo cp inmp441-bare.dtbo /boot/firmware/overlays/
-```
-
-### 2. Habilitar el overlay en `/boot/config.txt`
+### 2. Activar INMP441 (desactiva reproducción MAX98357A)
 
 ```bash
-sudo bash -c 'echo "dtoverlay=inmp441-bare,alsaname=mems-mic" >> /boot/config.txt'
-```
+# Opción A: usar el script de toggle
+bash /home/joy/src/xiaozhi_rpi/scripts/toggle-inmp441.sh --enable-capture
+sudo reboot
 
-> **Nota:** El `setup-pins.sh` en `scripts/` hace esto automáticamente.
+# Opción B: manualmente
+sudo sed -i 's/^dtoverlay=max98357a.*/#\0/' /boot/firmware/config.txt
+sudo sed -i 's/^#dtoverlay=inmp441-bare.*/dtoverlay=inmp441-bare/' /boot/firmware/config.txt
+sudo reboot
+```
 
 ### 3. Cargar módulos del kernel
 
 ```bash
-sudo modprobe snd-bcm2835
 sudo modprobe snd-soc-bcm2835-i2s
 sudo modprobe snd-soc-dmic
+sudo modprobe snd-soc-max98357a
 ```
 
 Añadir al arranque en `/etc/modules`:
 ```
-snd-bcm2835
 snd-soc-bcm2835-i2s
 snd-soc-dmic
+snd-soc-max98357a
 ```
 
-### 4. Reiniciar
+### 4. Verificar
 
 ```bash
-sudo reboot
-```
+# Reproducción (con MAX98357A activo)
+aplay -l | grep MAX98357A → debe mostrar la tarjeta
 
-### 5. Verificar
-
-Después del reinicio:
-```bash
-# El micrófono debe aparecer como tarjeta de captura
-arecord -l
-```
-
-Salida esperada:
-```
-**** List of CAPTURE Hardware Devices ****
-card 1: inmp441bare [inmp441-bare], device 0: ...
-  ...
+# Captura (con INMP441 activo)
+arecord -l | grep inmp441 → debe mostrar la tarjeta de captura
 ```
 
 ## Prueba del Micrófono
@@ -130,7 +151,7 @@ aplay test.wav
 En la Raspberry Pi ya existe el proyecto `inmp441_rpi` en `/home/joy/src/inmp441_rpi/` con utilidades avanzadas de captura y diagnóstico:
 
 ```bash
-# Diagnostico completo del micrófono
+# Diagnóstico completo del micrófono
 cd /home/joy/src/inmp441_rpi/
 sudo ./scripts/diag_mic.sh
 
@@ -145,9 +166,12 @@ sudo ./bin/recorder --level
 
 | Síntoma | Causa posible | Solución |
 |----------|---------------|----------|
-| `arecord -l` no muestra `inmp441-bare` | Overlay no cargado | Verifique `/boot/config.txt` tiene `dtoverlay=inmp441-bare`; reinicie |
-| Grabación silenciosa o muy corta | BCLK/WS incorrectos | Verifique GPIO 18 (SCK) → Pin 12, GPIO 19 (WS) → Pin 35 |
-| `Permission denied` en `snd_pcm_open` | Usuario no en grupo `audio` | `sudo usermod -a -G audio $USER && newgrp audio` |
-| Ruido estático | Condensador de acoplamiento faltante | Añadir 0.1 µF entre VDD y GND del INMP441 |
-| Amplitud muy baja | Alineación de bits | Usar `-f S32_LE`; los 24 bits están en bits 31–8 |
-| Canales izquierdo/derecho intercambiados | L/R en estado incorrecto | Verifique GPIO 21 o use `--no-lr-gpio` con L/R a GND |
+| `arecord -l` no muestra `inmp441` | Overlay no cargado | `bash scripts/toggle-inmp441.sh --enable-capture`; reinicie |
+| `aplay -l` no muestra `MAX98357A` | Overlay no cargado | `bash scripts/toggle-inmp441.sh --enable-playback`; reinicie |
+| Ambos overlays fallan | Conflicto I2S | Usar un overlay a la vez (ver toggle-inmp441.sh) |
+| Grabación silenciosa | Micrófono no conectado | Verifique wiring: SD→GPIO20, SCK→GPIO18, WS→GPIO19, L/R→GPIO21 |
+| BCLK/WS incorrectos | GPIO mal configurados | El overlay `inmp441-bare` configura los pines I2S automáticamente |
+| `Permission denied` | Usuario no en grupo `audio` | `sudo usermod -a -G audio $USER && newgrp audio` |
+| Ruido estático | Condensador faltante | Añadir 0.1 µF entre VDD y GND del INMP441 |
+| Alineación de bits incorrecta | Formato de muestra | Usar `-f S32_LE`; los 24 bits están en bits 31–8 |
+| Canales intercambiados | L/R en estado incorrecto | Verifique GPIO 21 o use `--no-lr-gpio` con L/R a GND |

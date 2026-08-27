@@ -1,0 +1,69 @@
+// Overlay combinado para INMP441 (captura) + MAX98357A (reproducción).
+//
+// DESAFÍO: El driver ASoC del kernel no permite que un solo DAI I2S
+// (bcm2835-i2s) se enlaze a dos tarjetas simple-audio-card simultáneamente.
+// Cuando max98357a e inmp441-bare están ambos activos, el segundo falla con:
+//   "Trying to bind component to card X but is already bound to card Y"
+//
+// SOLUCIÓN: Una sola simple-audio-card con dos enlaces DAI usando el
+// formato de propiedad plana (flat array). El driver simple-card soporta
+// arrays de phandles cuando simple-audio-card,cpu y simple-audio-card,codec
+// contienen múltiples entradas.
+//
+// NOTA: Si el formato flat array no funciona en tu kernel, usa:
+//   - max98357a para reproducción (scripts/toggle-inmp441.sh --enable-playback)
+//   - inmp441-bare para captura (scripts/toggle-inmp441.sh --enable-capture)
+//
+// INSTALACIÓN:
+//   dtc -@ -I dts -O dtb -o inmp441-max98357a-combined.dtbo inmp441-max98357a-combined.dts
+//   sudo cp inmp441-max98357a-combined.dtbo /boot/firmware/overlays/
+//   # en config.txt: dtoverlay=inmp441-max98357a-combined
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&i2s_clk_producer>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+		__overlay__ {
+			amp_codec: max98357a {
+				compatible = "maxim,max98357a";
+				#sound-dai-cells = <0>;
+				status = "okay";
+			};
+		};
+	};
+
+	fragment@2 {
+		target-path = "/";
+		__overlay__ {
+			dmic_codec: dmic-codec {
+				#sound-dai-cells = <0>;
+				compatible = "dmic-codec";
+				status = "okay";
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&sound>;
+		__overlay__ {
+			compatible = "simple-audio-card";
+			status = "okay";
+			simple-audio-card,format = "i2s";
+			simple-audio-card,name = "rpi-i2s-combined";
+
+			/* Dos enlaces DAI compartiendo el mismo CPU DAI (I2S) */
+			simple-audio-card,cpu = <&i2s_clk_producer>, <&i2s_clk_producer>;
+			simple-audio-card,codec = <&amp_codec>, <&dmic_codec>;
+		};
+	};
+};

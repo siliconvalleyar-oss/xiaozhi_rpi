@@ -46,9 +46,13 @@ El código fuente de py-xiaozhi se gestiona por separado en [`py-xiaozhi`](https
 | Componente | Conexión |
 |------------|----------|
 | Micrófono INMP441 | I2S: SD→GPIO20, SCK→GPIO18, WS→GPIO19, L/R→GPIO21 |
-| Amplificador MAX98357A | I2S: SD→GPIO... (configurado en max98357a_rpi) |
+| Amplificador MAX98357A | I2S: DIN→GPIO21, BCLK→GPIO18, LCLK→GPIO19, SD→GND |
 | Raspberry Pi | 3B+, 4B, o Zero 2W |
 | Cámara (opcional) | USB (índice 0) o CSI |
+
+> **Nota sobre I2S:** INMP441 (captura) y MAX98357A (reproducción) compiten
+> por el mismo DAI I2S (`bcm2835-i2s`). Usá `scripts/toggle-inmp441.sh` para
+> alternar entre modo captura y modo reproducción. Ver [INMP441 wiring](docs/inmp441-wiring.md).
 
 Ver la [guía completa del INMP441](docs/inmp441-wiring.md).
 
@@ -127,12 +131,15 @@ xiaozhi_rpi/
 │   ├── configuration.md        # Referencia de config.json
 │   ├── inmp441-wiring.md       # Pinout y configuración I2S INMP441
 │   └── camera-setup.md         # Configuración de cámara (v4l2-ctl)
-└── scripts/
-    ├── install-dependencies.sh  # PulseAudio, FFmpeg, Opus, build tools
-    ├── install-miniconda.sh     # Miniconda (aarch64)
-    ├── setup-pins.sh            # Overlay I2S inmp441-bare + módulos kernel
-    ├── download-wake-word-model.sh  # Modelo Vosk para wake word
-    └── deploy-rpi.sh            # Despliegue remoto vía SSH
+├── scripts/
+│   ├── install-dependencies.sh  # PulseAudio, FFmpeg, Opus, build tools
+│   ├── install-miniconda.sh     # Miniconda (aarch64)
+│   ├── setup-pins.sh            # Overlay I2S + módulos kernel
+│   ├── toggle-inmp441.sh        # Alternar entre INMP441/MAX98357A
+│   ├── download-wake-word-model.sh  # Modelo Vosk para wake word
+│   ├── deploy-rpi.sh            # Despliegue remoto vía SSH
+│   └── overlays/
+│       └── inmp441-max98357a-combined.dts  # Overlay I2S combinado (opcional)
 ```
 
 ## Verificación
@@ -140,16 +147,15 @@ xiaozhi_rpi/
 Después de la instalación, verifique el hardware:
 
 ```bash
-# Micrófono INMP441
-ssh joy@raspberry.local "arecord -l"
-# Debe mostrar: card N: inmp441bare [inmp441-bare]
-
-# Cámara
-ssh joy@raspberry.local "v4l2-ctl --list-devices"
-
-# Audio (MAX98357A)
+# Audio (MAX98357A — reproducción)
 ssh joy@raspberry.local "aplay -l"
-# Debe mostrar: card N: max98357a [MAX98357A]
+# Debe mostrar: card N: MAX98357A
+
+# INMP441 — captura (requiere alternar overlay)
+ssh joy@raspberry.local "bash scripts/toggle-inmp441.sh --enable-capture"
+ssh joy@raspberry.local "sudo reboot"
+after reboot: ssh joy@raspberry.local "arecord -l"
+# Debe mostrar: card N: inmp441bare [inmp441-bare]
 ```
 
 ## Licencia
