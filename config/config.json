@@ -1,0 +1,113 @@
+{
+  "CONFIG_VERSION": 1,
+  "SYSTEM_OPTIONS": {
+    "CLIENT_ID": null,
+    "DEVICE_ID": null,
+    "WINDOW_SIZE_MODE": "default",
+    "NETWORK": {
+      "OTA_VERSION_URL": "https://api.tenclass.net/xiaozhi/ota/",
+      "WEBSOCKET_URL": "wss://api.tenclass.net/xiaozhi/v1/",
+      "WEBSOCKET_ACCESS_TOKEN": "test-token",
+      "MQTT_INFO": null,
+      "ACTIVATION_VERSION": "v2",
+      "AUTHORIZATION_URL": "https://xiaozhi.me/"
+    }
+  },
+  "WAKE_WORD_OPTIONS": {
+    "USE_WAKE_WORD": true,
+    "MODEL_PATH": "models/zh",
+    "NUM_THREADS": 5,
+    "PROVIDER": "cpu",
+    "MAX_ACTIVE_PATHS": 2,
+    "KEYWORDS_SCORE": 1.8,
+    "KEYWORDS_THRESHOLD": 0.2,
+    "NUM_TRAILING_BLANKS": 1,
+    "WAKE_WORD": "你好小智",
+    "WAKE_WORD_LANG": "zh"
+  },
+  "CAMERA": {
+    "camera_index": 0,
+    "device": "",
+    "backend": "auto",
+    "frame_width": 640,
+    "frame_height": 480,
+    "fps": 30,
+    "warm_up_frames": 5,
+    "Local_VL_url": "https://open.bigmodel.cn/api/paas/v4/",
+    "VLapi_key": "",
+    "models": "glm-4v-flash"
+  },
+  "SHORTCUTS": {
+    "ENABLED": true,
+    "MANUAL_PRESS": {"modifier": "ctrl", "key": "j", "description": "按住说话"},
+    "AUTO_TOGGLE": {"modifier": "ctrl", "key": "k", "description": "自动对话"},
+    "ABORT": {"modifier": "ctrl", "key": "q", "description": "中断对话"},
+    "MODE_TOGGLE": {"modifier": "ctrl", "key": "m", "description": "切换模式"},
+    "WINDOW_TOGGLE": {"modifier": "ctrl", "key": "w", "description": "显示/隐藏窗口"}
+  },
+  "AEC_OPTIONS": {
+    "ENABLED": false,
+    "MUSIC_PARALLEL": true,
+    "FRAME_DELAY": 3,
+    "ENABLE_PREPROCESS": true
+  },
+  "PATHS": {
+    "CACHE_DIR": null,
+    "LOG_DIR": null,
+    "MUSIC_CACHE_DIR": null,
+    "KEYWORDS_DIR": null
+  },
+  "MCP_PLUGINS": {
+    "ENABLED": true,
+    "DIR": null,
+    "ENABLED_IDS": [],
+    "DISABLED_IDS": [],
+    "ALLOW_HOST_GET": ["config_readonly", "logger"],
+    "ENFORCE_PREFIX": false,
+    "REQUIRE_PYTHON_ABI": false,
+    "REQUIRE_PLATFORMS": false
+  },
+  "MCP_TOOLS": {
+    "DISABLED": []
+  },
+  "AUDIO_DEVICES": {
+    "input_device_id": null,
+    "input_device_name": null,
+    "output_device_id": null,
+    "output_device_name": null,
+    "input_sample_rate": null,
+    "output_sample_rate": null,
+    "input_channels": null,
+    "output_channels": null,
+    "opus_output_sample_rate": 24000,
+    "frame_duration": 20
+  },
+  "LOGGING": {
+    "LEVEL": "INFO",
+    "FORMAT_TYPE": "colored",
+    "ENABLE_CONSOLE": true,
+    "ENABLE_FILE": true,
+    "ENABLE_ERROR_FILE": true,
+    "ENABLE_JSON_FILE": false,
+    "ENABLE_ASYNC": false,
+    "ENABLE_SENSITIVE_FILTER": true,
+    "MAX_BYTES": 10485760,
+    "BACKUP_COUNT": 30,
+    "ROTATION_WHEN": "midnight",
+    "THIRD_PARTY_LEVELS": {
+      "urllib3": "WARNING",
+      "websockets": "WARNING",
+      "asyncio": "WARNING",
+      "paho": "WARNING",
+      "PIL": "WARNING"
+    }
+  },
+  "MUSIC": {
+    "SEARCH_URL": "",
+    "URL_API": "",
+    "URL_API_KEY": "",
+    "LYRICS_URL": "",
+    "DEFAULT_PLATFORM": "kw",
+    "DEFAULT_QUALITY": "320k"
+  }
+}

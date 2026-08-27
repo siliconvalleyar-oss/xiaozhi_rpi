@@ -72,8 +72,12 @@ source ~/.bashrc
 
 
 Reinicie el robot Xiaozhi:
-python main.py
 
+    Reinicie el robot Xiaozhi:
+    python main.py
+    Se ha generado información de configuración para este proyecto:
+
+config/config.json
 {
 
   “OPCIONES_DEL_SISTEMA”: {
@@ -178,6 +182,21 @@ python main.py
 
 
 
+config/efuse.json
+{
+
+“número_de_serie”: “SN-0EA6D7B6-dca6327fdb91”,
+
+“hmac_key”: “22143413742b6dc80173abf5ff1d97a488b9cee225092bce94eb56456fcf140d”,
+
+“estado_de_activación”: verdadero
+
+}
+
+    Cuando el estado de activación cambia a verdadero, indica que se ha activado.
+    Inicio exitoso:
+
+
 
 
 
@@ -196,3 +215,25 @@ cd models
 mv ~/vosk-model-small-cn-0.22.zip ./
 
 ##################################
+
+
+Modificar la configuración:
+cd ../config/
+nano config.json
+Configure el modelo de activación por voz y active el interruptor para usar la palabra de activación:
+
+
+##############################
+Modifique el archivo de configuración config/config.json, copie las claves API creadas, reemplace el valor de VLapi_key y seleccione glm-4v-flash como modelo. Este modelo visual es gratuito y se puede adaptar a otros modelos según sea necesario.
+
+nano ./config/config.json
+
+
+#################
+Si solo hay una cámara USB, camera_index debe establecerse en 0.
+También puede ver el índice del dispositivo de la cámara mediante el comando:
+
+v4l2-ctl --list-devices
+
+
+######################3
